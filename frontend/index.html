@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="connection-header">connected to web socket: false</div>
+    <h1>login</h1>
+    <!-- <form id="form-login"> -->
+    <input id="username" placeholder="enter username" />
+    <input id="password" placeholder="enter password" />
+    <button type="submit" id="login-btn">login</button>
+    <!-- </form> -->
+    <br />
+    <input id="message-input" />
+    <button id="send-message-btn">Send Message</button>
+    <script>
+      class Event {
+        constructor(type, payload) {
+          this.type = type;
+          this.payload = payload;
+        }
+      }
+
+      function routeEvent(event) {
+        if (event.type == undefined) {
+          alert("no type filed in the event");
+        }
+
+        switch (event.type) {
+          case "new_message":
+            console.log("there is a new message", event.payload);
+            break;
+          default:
+            alert("unsupport event type");
+        }
+      }
+
+      function sendEvent(type, payload) {
+        const newEvent = new Event(type, payload);
+        conn.send(JSON.stringify(newEvent));
+      }
+
+      document
+        .getElementById("login-btn")
+        .addEventListener("click", handleSubmit);
+
+      async function handleSubmit(e) {
+        console.log("login");
+        e.preventDefault();
+        const data = {
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value,
+        };
+
+        try {
+          const response = await fetch("/login", {
+            method: "post",
+            body: JSON.stringify(data),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            // connect to websocket
+            connectToWebSocket(data.opt);
+          } else {
+            throw "unauthenticated";
+          }
+        } catch (e) {
+          console.log("catch it");
+          alert(e);
+        }
+      }
+
+      function connectToWebSocket(opt) {
+        if (window["WebSocket"]) {
+          console.log("support web socket");
+          conn = new WebSocket(`ws://localhost:8080/ws?opt=${opt}`);
+
+          conn.onopen = function (evt) {
+            document.getElementById("connection-header").innerText =
+              "connected to webdocket: true";
+          };
+
+          conn.onclose = function (evt) {
+            document.getElementById("connection-header").innerText =
+              "connected to webdocket: false";
+          };
+
+          conn.onmessage = function (evt) {
+            const eventData = JSON.parse(evt.data);
+            const event = Object.assign(new Event(), eventData);
+            routeEvent(event);
+          };
+        }
+      }
+
+      var conn;
+      window.onload = function () {
+        const sendMessageBtn = document.getElementById("send-message-btn");
+        sendMessageBtn.addEventListener("click", sendMessage);
+      };
+
+      function sendMessage() {
+        const inputEl = document.getElementById("message-input");
+        if (inputEl.value == "") {
+          return;
+        }
+
+        sendEvent("new_message", inputEl.value);
+      }
+    </script>
+  </body>
+</html>
