@@ -6,21 +6,23 @@ import (
 	"github.com/google/uuid"
 )
 
+
+
 type OPT struct {
-	Key       string
+	Key string
 	CreatedAt time.Time
 }
 
-type RetentionMap map[string]OPT
+type RetentionMap map[string] OPT
 
 func NewRetentionMap() RetentionMap {
-	m := make(RetentionMap)
+	m:= make(RetentionMap)
 	return m
 }
 
-func (rm RetentionMap) NewOpt() OPT {
-	o := OPT{
-		Key:       uuid.NewString(),
+func(rm RetentionMap) NewOpt() OPT{
+	o := OPT {
+		Key: uuid.NewString(),
 		CreatedAt: time.Now(),
 	}
 
@@ -29,7 +31,7 @@ func (rm RetentionMap) NewOpt() OPT {
 	return o
 }
 
-func (rm RetentionMap) Verify(optKey string) bool {
+func(rm RetentionMap) Verify(optKey string) bool{
 	if _, ok := rm[optKey]; !ok {
 		return false // opt is not valid
 	}
