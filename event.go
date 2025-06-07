@@ -3,7 +3,7 @@ package main
 import "encoding/json"
 
 type Event struct {
-	Type string `json:"type"`
+	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
@@ -15,5 +15,5 @@ const (
 
 type SendMesageEvent struct {
 	Message string `json:"mesage"`
-	From string `json:"from"`
+	From    string `json:"from"`
 }
