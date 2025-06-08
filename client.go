@@ -16,6 +16,14 @@ const (
 
 type ClientList map[*Client]bool
 
+type ClientUserList map[string] *Client
+
+type UserList map[string] User
+
+type User struct {
+	Username string `json:"username"`
+}
+
 type Client struct {
 	connection *websocket.Conn
 	Manager    *Manager
@@ -45,7 +53,7 @@ func (c *Client) ReadMessages() {
 		return
 	}
 
-	c.connection.SetReadLimit(50)
+	c.connection.SetReadLimit(1000)
 
 	c.connection.SetPongHandler(c.pongHandler)
 
@@ -58,11 +66,15 @@ func (c *Client) ReadMessages() {
 			break
 		}
 
+
 		var request Event
 		if err := json.Unmarshal(payload, &request); err != nil {
 			log.Println("failed to unmarshal even", err)
 			break
 		}
+
+		// publish the message to the user channel
+		// c.Manager.Redisclient.Pub(context.Background(), )
 
 		if err := c.Manager.routeEvent(request, c); err != nil {
 			log.Println("error handling mesage", err)
