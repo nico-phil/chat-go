@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -21,6 +22,7 @@ var (
 
 type Manager struct {
 	Clients ClientList
+	clientUserList ClientUserList
 	sync.Mutex
 
 	handlers     map[string]EventHandler
@@ -31,8 +33,10 @@ type Manager struct {
 
 func NewManager() *Manager {
 	m := &Manager{
-		Clients:  make(ClientList, 0),
+		Clients:  make(ClientList),
+		clientUserList: make(ClientUserList),
 		handlers: make(map[string]EventHandler),
+		Redisclient: NewRedisClient(),
 	}
 
 	m.setupEventHandlers()
@@ -41,11 +45,40 @@ func NewManager() *Manager {
 
 func (m *Manager) setupEventHandlers() {
 	m.handlers[EventSendMessage] = SendMessage
+	m.handlers[EventCreateChat] = CreateChatHandler
 
 }
 
 func SendMessage(event Event, c *Client) error {
 	fmt.Println(event)
+	return nil
+}
+
+func CreateChatHandler(event Event, c *Client) error {
+	fmt.Println("chat updated", event.Type)
+	fmt.Println("chat updated", event.Payload)
+	var  CreateChatdata  struct {
+		ChatName string `json:"chat_name"`
+		Participants []string `json:"participants"`
+	}
+
+	data , _ := json.Marshal(event.Payload)
+
+	json.Unmarshal(data, &CreateChatdata)
+	
+	var sendPayloadData struct {
+		ChatName string `json:"chat_name"`
+		Participants []string `json:"participants"`
+		ID string `json:"id"`
+	}
+	sendPayloadData.ChatName = CreateChatdata.ChatName
+	sendPayloadData.Participants = CreateChatdata.Participants
+	sendPayloadData.ID = uuid.NewString()
+	
+	sendEvenData := Event{Type: "chat_updated", Payload: sendPayloadData }
+
+	c.Egress <- sendEvenData
+	
 	return nil
 }
 
@@ -71,7 +104,17 @@ func (m *Manager) serveWs(w http.ResponseWriter, r *http.Request) {
 
 	client := NewClient(conn, m)
 
+
+	username := r.URL.Query().Get("username")
+
 	m.AddClient(client)
+	m.AddClientUser(client, username)
+
+	fmt.Println(m.clientUserList)
+	
+	// subscribe to the channel for the connected user
+	// err = m.Redisclient.Sub(context.Background(), "user_A")
+	
 
 	// read message
 	go client.ReadMessages()
@@ -86,6 +129,16 @@ func (m *Manager) AddClient(client *Client) {
 	_, ok := m.Clients[client]
 	if !ok {
 		m.Clients[client] = true
+	}
+}
+
+func (m *Manager) AddClientUser(client *Client, userID string) {
+	m.Lock()
+	defer m.Unlock()
+
+	_, ok := m.clientUserList[userID]
+	if !ok {
+		m.clientUserList[userID] = client
 	}
 }
 
@@ -113,7 +166,7 @@ func checkOrigin(r *http.Request) bool {
 func (m *Manager) Login(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Username string `json:"username"`
-		Password string `json:"password"`
+		// Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -121,11 +174,15 @@ func (m *Manager) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Username != "nico" && input.Password != "123" {
-		http.Error(w, "bad credenttial", http.StatusUnauthorized)
-		return
-	}
+	// if input.Username != "nico" && input.Password != "123" {
+	// 	http.Error(w, "bad credenttial", http.StatusUnauthorized)
+	// 	return
+	// }
 
-	m.retentionMap.NewOpt()
+	data, _ := json.Marshal(input)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 
 }

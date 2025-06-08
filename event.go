@@ -1,16 +1,15 @@
 package main
 
-import "encoding/json"
-
 type Event struct {
 	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
+	Payload any `json:"payload"`
 }
 
 type EventHandler func(event Event, c *Client) error
 
 const (
 	EventSendMessage = "new_message"
+	EventCreateChat = "create_chat"
 )
 
 type SendMesageEvent struct {
